@@ -1,0 +1,14 @@
+{
+  "name": "hyperexponential",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "vercel dev",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@vercel/node": "^3.0.0",
+    "framer": "latest",
+    "typescript": "^5.4.0"
+  }
+}
