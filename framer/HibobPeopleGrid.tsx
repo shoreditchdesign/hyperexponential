@@ -7,10 +7,10 @@ import { useEffect, useState } from "react";
 // Edit this section to update the component across the board.
 
 // API proxy
-const DEFAULT_PROXY_URL = "https://hyperexponential-sd.vercel.app";
+const DEFAULT_PROXY_URL = "https://hyperexponential-org.vercel.app";
 
 // Load more
-const ITEMS_PER_PAGE = 6; // people revealed per "Load more" click
+const ITEMS_PER_PAGE = 12; // people revealed per "Load more" click
 
 // Grid spacing
 const COLUMN_GAP = 24; // px
