@@ -6,6 +6,9 @@ import { useEffect, useState } from "react";
 // All brand tokens and layout values live here.
 // Edit this section to update the component across the board.
 
+// API proxy
+const DEFAULT_PROXY_URL = "https://hyperexponential-sd.vercel.app";
+
 // Load more
 const ITEMS_PER_PAGE = 6; // people revealed per "Load more" click
 
@@ -75,6 +78,8 @@ interface Person {
 interface HibobPeopleGridProps {
   hub: string;
   proxyUrl: string;
+  totalNumber: string;
+  cellsPerPage: number;
   columns: number;
   style?: CSSProperties;
 }
@@ -135,7 +140,9 @@ function Avatar({ src, name }: { src: string; name: string }) {
 
 function SkeletonCard() {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: AVATAR_ITEM_GAP }}>
+    <div
+      style={{ display: "flex", alignItems: "center", gap: AVATAR_ITEM_GAP }}
+    >
       <div
         style={{
           width: AVATAR_SIZE,
@@ -146,8 +153,22 @@ function SkeletonCard() {
         }}
       />
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-        <div style={{ width: 120, height: 13, borderRadius: 4, background: "#ebebeb" }} />
-        <div style={{ width: 80, height: 11, borderRadius: 4, background: "#f3f3f3" }} />
+        <div
+          style={{
+            width: 120,
+            height: 13,
+            borderRadius: 4,
+            background: "#ebebeb",
+          }}
+        />
+        <div
+          style={{
+            width: 80,
+            height: 11,
+            borderRadius: 4,
+            background: "#f3f3f3",
+          }}
+        />
       </div>
     </div>
   );
@@ -160,24 +181,33 @@ function SkeletonCard() {
  * @framerSupportedLayoutHeight auto
  */
 export default function HibobPeopleGrid(props: HibobPeopleGridProps) {
-  const { hub, proxyUrl, columns, style } = props;
+  const { hub, proxyUrl, totalNumber, cellsPerPage, columns, style } = props;
+  const resolvedProxyUrl = proxyUrl || DEFAULT_PROXY_URL;
+  const pageSize =
+    Number.isFinite(cellsPerPage) && cellsPerPage > 0
+      ? Math.floor(cellsPerPage)
+      : ITEMS_PER_PAGE;
+
+  const parsedTotalNumber = Number.parseInt(totalNumber, 10);
+  const totalLimit =
+    Number.isFinite(parsedTotalNumber) && parsedTotalNumber > 0
+      ? parsedTotalNumber
+      : null;
 
   const [people, setPeople] = useState<Person[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
-  const [visibleCount, setVisibleCount] = useState(ITEMS_PER_PAGE);
+  const [visibleCount, setVisibleCount] = useState(pageSize);
 
   useEffect(() => {
-    if (!proxyUrl) return;
-
     setLoading(true);
     setError(false);
     setPeople([]);
-    setVisibleCount(ITEMS_PER_PAGE);
+    setVisibleCount(pageSize);
 
     const url = hub
-      ? `${proxyUrl}/api/people?hub=${encodeURIComponent(hub)}`
-      : `${proxyUrl}/api/people`;
+      ? `${resolvedProxyUrl}/api/people?hub=${encodeURIComponent(hub)}`
+      : `${resolvedProxyUrl}/api/people`;
 
     fetch(url)
       .then((res) => {
@@ -192,7 +222,11 @@ export default function HibobPeopleGrid(props: HibobPeopleGridProps) {
         setError(true);
         setLoading(false);
       });
-  }, [hub, proxyUrl]);
+  }, [hub, resolvedProxyUrl]);
+
+  useEffect(() => {
+    setVisibleCount(pageSize);
+  }, [pageSize]);
 
   const gridStyle: CSSProperties = {
     width: "100%",
@@ -247,9 +281,10 @@ export default function HibobPeopleGrid(props: HibobPeopleGridProps) {
     );
   }
 
-  const visiblePeople = people.slice(0, visibleCount);
-  const remaining = people.length - visibleCount;
-  const nextBatch = Math.min(ITEMS_PER_PAGE, remaining);
+  const limitedPeople = totalLimit ? people.slice(0, totalLimit) : people;
+  const visiblePeople = limitedPeople.slice(0, visibleCount);
+  const remaining = limitedPeople.length - visibleCount;
+  const nextBatch = Math.min(pageSize, remaining);
 
   return (
     <div
@@ -265,7 +300,11 @@ export default function HibobPeopleGrid(props: HibobPeopleGridProps) {
         {visiblePeople.map((person) => (
           <div
             key={person.id || person.name}
-            style={{ display: "flex", alignItems: "center", gap: AVATAR_ITEM_GAP }}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: AVATAR_ITEM_GAP,
+            }}
           >
             <Avatar src={person.avatarUrl} name={person.name} />
             <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
@@ -278,7 +317,7 @@ export default function HibobPeopleGrid(props: HibobPeopleGridProps) {
 
       {remaining > 0 && (
         <button
-          onClick={() => setVisibleCount((v) => v + ITEMS_PER_PAGE)}
+          onClick={() => setVisibleCount((v) => v + pageSize)}
           style={baseButtonStyles}
         >
           Load {nextBatch} more
@@ -298,13 +337,29 @@ addPropertyControls(HibobPeopleGrid, {
     title: "Hub",
     defaultValue: "",
     placeholder: "e.g. engineering",
-    description: "Connect to the CMS 'Parent Hub' slug. Leave empty to show all employees.",
+    description:
+      "Connect to the CMS 'Parent Hub' slug. Leave empty to show all employees.",
   },
   proxyUrl: {
     type: ControlType.String,
     title: "Proxy URL",
-    defaultValue: "https://hyperexponential.vercel.app",
+    defaultValue: DEFAULT_PROXY_URL,
     description: "Base URL of the Vercel deployment. No trailing slash.",
+  },
+  totalNumber: {
+    type: ControlType.String,
+    title: "Total Number",
+    defaultValue: "",
+    placeholder: "e.g. 12",
+    description: "Maximum people to show. Leave empty to show all.",
+  },
+  cellsPerPage: {
+    type: ControlType.Number,
+    title: "Cells / Page",
+    defaultValue: ITEMS_PER_PAGE,
+    min: 1,
+    step: 1,
+    displayStepper: true,
   },
   columns: {
     type: ControlType.Number,
