@@ -73,7 +73,7 @@ interface Person {
 }
 
 interface HibobPeopleGridProps {
-  department: string;
+  hub: string;
   proxyUrl: string;
   columns: number;
   style?: CSSProperties;
@@ -160,7 +160,7 @@ function SkeletonCard() {
  * @framerSupportedLayoutHeight auto
  */
 export default function HibobPeopleGrid(props: HibobPeopleGridProps) {
-  const { department, proxyUrl, columns, style } = props;
+  const { hub, proxyUrl, columns, style } = props;
 
   const [people, setPeople] = useState<Person[]>([]);
   const [loading, setLoading] = useState(false);
@@ -168,14 +168,18 @@ export default function HibobPeopleGrid(props: HibobPeopleGridProps) {
   const [visibleCount, setVisibleCount] = useState(ITEMS_PER_PAGE);
 
   useEffect(() => {
-    if (!department || !proxyUrl) return;
+    if (!proxyUrl) return;
 
     setLoading(true);
     setError(false);
     setPeople([]);
     setVisibleCount(ITEMS_PER_PAGE);
 
-    fetch(`${proxyUrl}/api/people?department=${encodeURIComponent(department)}`)
+    const url = hub
+      ? `${proxyUrl}/api/people?hub=${encodeURIComponent(hub)}`
+      : `${proxyUrl}/api/people`;
+
+    fetch(url)
       .then((res) => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return res.json() as Promise<Person[]>;
@@ -188,7 +192,7 @@ export default function HibobPeopleGrid(props: HibobPeopleGridProps) {
         setError(true);
         setLoading(false);
       });
-  }, [department, proxyUrl]);
+  }, [hub, proxyUrl]);
 
   const gridStyle: CSSProperties = {
     width: "100%",
@@ -235,10 +239,10 @@ export default function HibobPeopleGrid(props: HibobPeopleGridProps) {
     );
   }
 
-  if (people.length === 0 && department) {
+  if (people.length === 0 && hub) {
     return (
       <div style={{ width: "100%", ...roleStyle, opacity: 0.6 }}>
-        No team members found for &ldquo;{department}&rdquo;.
+        No team members found for &ldquo;{hub}&rdquo;.
       </div>
     );
   }
@@ -289,12 +293,12 @@ export default function HibobPeopleGrid(props: HibobPeopleGridProps) {
 // Visual tokens are managed in the Config section above.
 
 addPropertyControls(HibobPeopleGrid, {
-  department: {
+  hub: {
     type: ControlType.String,
-    title: "Department",
+    title: "Hub",
     defaultValue: "",
-    placeholder: "e.g. Engineering",
-    description: "Connect to a Framer CMS field for the department name.",
+    placeholder: "e.g. engineering",
+    description: "Connect to the CMS 'Parent Hub' slug. Leave empty to show all employees.",
   },
   proxyUrl: {
     type: ControlType.String,
