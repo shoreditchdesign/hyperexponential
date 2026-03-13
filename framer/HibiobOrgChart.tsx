@@ -75,7 +75,7 @@ interface Person {
   avatarUrl: string;
 }
 
-interface HibobPeopleGridProps {
+interface HibiobOrgChartProps {
   hub: string;
   proxyUrl: string;
   totalNumber: string;
@@ -180,7 +180,7 @@ function SkeletonCard() {
  * @framerSupportedLayoutWidth any
  * @framerSupportedLayoutHeight auto
  */
-export default function HibobPeopleGrid(props: HibobPeopleGridProps) {
+export default function HibiobOrgChart(props: HibiobOrgChartProps) {
   const { hub, proxyUrl, totalNumber, cellsPerPage, columns, style } = props;
   const resolvedProxyUrl = proxyUrl || DEFAULT_PROXY_URL;
   const pageSize =
@@ -331,14 +331,14 @@ export default function HibobPeopleGrid(props: HibobPeopleGridProps) {
 // Only data and layout props that may vary per page instance.
 // Visual tokens are managed in the Config section above.
 
-addPropertyControls(HibobPeopleGrid, {
+addPropertyControls(HibiobOrgChart, {
   hub: {
     type: ControlType.String,
     title: "Hub",
     defaultValue: "",
     placeholder: "e.g. engineering",
     description:
-      "Connect to the CMS 'Parent Hub' slug. Leave empty to show all employees.",
+      "Connect to the CMS hub value. Employees are matched against HiBob's Website Hub multi-list field. Leave empty to show all employees.",
   },
   proxyUrl: {
     type: ControlType.String,

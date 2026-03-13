@@ -2,38 +2,17 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 
 const HIBOB_API_URL = "https://api.hibob.com/v1/people/search";
 
-// Custom column ID in HiBob that stores the team name
-const TEAM_COLUMN = "column_1683672972880";
-
-// Maps Framer CMS "Parent Hub" slugs to HiBob team column values.
-// Derived from docs/cms.csv cross-referenced against live HiBob data.
-// Empty hub prop → show all employees (no filter applied).
-const HUB_TEAMS: Record<string, string[]> = {
-  "ai": ["AI Products"],
-  "client-services": ["Customer Delivery", "Customer Leadership", "Customer PM", "Customer Support", "Learning"],
-  "customer-success": ["Customer Success"],
-  "design": ["Product Design"],
-  "engineering": ["Delivery", "Development", "Engineering Management", "Quality"],
-  "field-engineering": ["Field Engineering", "Solutions Engineering"],
-  "finance": ["Control", "FP&A"],
-  "legal-infosec": ["Legal, Risk & Compliance", "Operations"],
-  "marketing-gtm-engineering": ["ABFM", "Corporate Marketing", "Product Marketing", "RevOps", "SDR"],
-  "model-development": [], // No matching HiBob team found — returns empty
-  "people": ["People"],
-  "pricing-innovation": ["Pricing & Innovation"],
-  "product": ["Product Management", "Product Ops"],
-  "sales-partnerships": ["Account Executives - International", "Account Executives - North America", "Account Executives - Strategic Accounts", "Partners", "Sales"],
-  "talent": ["Talent"],
-};
+const WEBSITE_HUB_FIELD = "field_1773332818757";
 
 interface HibobEmployee {
   id?: string;
+  firstName?: string;
   displayName?: string;
   avatarUrl?: string;
+  custom?: Record<string, unknown>;
   work?: {
     title?: string;
     department?: string;
-    customColumns?: Record<string, string>;
   };
 }
 
@@ -47,6 +26,44 @@ interface PersonRecord {
   role: string;
   department: string;
   avatarUrl: string;
+}
+
+function slugify(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function toStringArray(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => {
+        if (typeof item === "string") return item;
+        if (item && typeof item === "object") {
+          if ("name" in item && typeof item.name === "string") return item.name;
+          if ("value" in item && typeof item.value === "string")
+            return item.value;
+        }
+        return "";
+      })
+      .filter(Boolean);
+  }
+
+  if (typeof value === "string") {
+    return value
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+
+  return [];
+}
+
+function getWebsiteHubValues(employee: HibobEmployee): string[] {
+  return toStringArray(employee.custom?.[WEBSITE_HUB_FIELD]);
 }
 
 function getAllowedOrigins(): string[] {
@@ -75,7 +92,7 @@ function setCorsHeaders(req: VercelRequest, res: VercelResponse): boolean {
 
 export default async function handler(
   req: VercelRequest,
-  res: VercelResponse
+  res: VercelResponse,
 ): Promise<void> {
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
@@ -94,13 +111,6 @@ export default async function handler(
   const hubParam = req.query["hub"];
   const hub = typeof hubParam === "string" ? hubParam.trim() : "";
 
-  // If a hub is provided but not recognised, return an empty list rather than
-  // leaking internal team names via an error message.
-  if (hub && !(hub in HUB_TEAMS)) {
-    res.status(200).json([]);
-    return;
-  }
-
   const serviceUserId = process.env.HIBOB_SERVICE_USER_ID;
   const token = process.env.HIBOB_TOKEN;
 
@@ -110,13 +120,10 @@ export default async function handler(
     return;
   }
 
-  const credentials = Buffer.from(`${serviceUserId}:${token}`).toString("base64");
+  const credentials = Buffer.from(`${serviceUserId}:${token}`).toString(
+    "base64",
+  );
 
-  // Fetch all active employees with no field restriction — HiBob does not
-  // expose the team custom column via a fieldPath specifier, so we receive
-  // the full record and pick what we need below.
-  // Filtering by team happens in JS because HiBob's search API does not
-  // support filtering on custom column values.
   const searchBody = {
     humanReadable: "REPLACE",
     showInactive: false,
@@ -148,18 +155,25 @@ export default async function handler(
   const data = (await hibobResponse.json()) as HibobSearchResponse;
   const employees = data.employees ?? [];
 
-  // Filter by hub team list (empty hub = show everyone)
-  const allowedTeams = hub ? new Set(HUB_TEAMS[hub]) : null;
+  const requestedHubs = hub
+    ? new Set(
+        hub
+          .split(",")
+          .map((value) => slugify(value))
+          .filter(Boolean),
+      )
+    : null;
 
   const people: PersonRecord[] = employees
     .filter((emp) => {
-      if (!allowedTeams) return true;
-      const team = emp.work?.customColumns?.[TEAM_COLUMN] ?? "";
-      return allowedTeams.has(team);
+      if (!requestedHubs || requestedHubs.size === 0) return true;
+
+      const employeeHubs = getWebsiteHubValues(emp).map(slugify);
+      return employeeHubs.some((employeeHub) => requestedHubs.has(employeeHub));
     })
     .map((emp) => ({
       id: emp.id ?? "",
-      name: emp.displayName ?? "",
+      name: emp.firstName ?? emp.displayName ?? "",
       role: emp.work?.title ?? "",
       department: emp.work?.department ?? "",
       avatarUrl: emp.avatarUrl ?? "",
