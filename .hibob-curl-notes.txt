@@ -1,9 +1,0 @@
-Load credentials:
-  set -a; source ./.env.hibob.local; set +a
-
-Inspect unique Website Hub values directly from HiBob:
-  curl -s -X POST "https://api.hibob.com/v1/people/search" \
-    -H "Authorization: Basic $(printf "%s:%s" "$HIBOB_SERVICE_USER_ID" "$HIBOB_TOKEN" | base64)" \
-    -H "Content-Type: application/json" \
-    -H "Accept: application/json" \
-    --data "{\"humanReadable\":\"REPLACE\",\"showInactive\":false}"
